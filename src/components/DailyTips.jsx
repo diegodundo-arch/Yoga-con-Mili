@@ -55,111 +55,9 @@ function createWaterSource(ctx) {
   return { src, gain }
 }
 
-/** Selecciona la voz española más natural disponible.
- *  Las voces neurales/online suenan humanas; las locales del sistema suenan robóticas
- *  independientemente de los parámetros.
- *  Prioridad: Google neural > Microsoft Online > Apple nativa > online genérica > local */
-function pickBestVoice() {
-  const v = window.speechSynthesis.getVoices()
-
-  // Google Español (Chrome en desktop/Android — voz neural de alta calidad)
-  const google = v.find(x => /google\s*(es|español|spanish)/i.test(x.name))
-  if (google) return google
-
-  // Microsoft Online — voces neurales en Edge
-  const ms = v.find(x =>
-    /microsoft.*(sabina|dalia|renata|laura|helena|camila).*(online)/i.test(x.name)
-  )
-  if (ms) return ms
-
-  // Apple — Mónica (es-ES) y Paulina (es-MX) son las más naturales en iOS/macOS
-  const apple = v.find(x =>
-    /^(mónica|paulina|esperanza|jorge)$/i.test(x.name) && x.lang.startsWith('es')
-  )
-  if (apple) return apple
-
-  // Cualquier voz online en español (mejor que las locales)
-  const online = v.find(x => x.lang.startsWith('es') && x.localService === false)
-  if (online) return online
-
-  // Fallback: cualquier español disponible
-  return v.find(x => x.lang.startsWith('es'))
-}
-
-/** Divide el texto en fragmentos pequeños para respirar entre ellos.
- *  Cada "…" se convierte en una pausa larga (700ms),
- *  cada "." en una pausa normal (500ms).
- *  pitch 1.0 = neutro/natural; rate 0.80 = meditativo sin arrastrar. */
-function speakGuide(text) {
-  if (!window.speechSynthesis) return
-  window.speechSynthesis.cancel()
-
-  // Separar por "…" y "." — los "…" generan pausa más larga
-  const segments = []
-  text.split('…').forEach((chunk, ci, arr) => {
-    const subs = chunk.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
-    subs.forEach((s) => {
-      segments.push({ text: s, pause: 580 })
-    })
-    // Pausa de respiración después de cada "…" (simula inhalar antes de seguir)
-    if (ci < arr.length - 1 && segments.length)
-      segments[segments.length - 1].pause = 900
-  })
-
-  const makeUtt = (txt, voice) => {
-    const u = new SpeechSynthesisUtterance(txt)
-    u.lang   = 'es-AR'
-    u.rate   = 0.88   // cerca del habla natural — el ritmo meditativo lo dan las pausas, no estirar fonemas
-    u.pitch  = 1.08   // leve calidez femenina sin elevar a agudo
-    u.volume = 0.96
-    if (voice) u.voice = voice
-    return u
-  }
-
-  const speak = (voice) => {
-    let idx = 0
-    const next = () => {
-      if (idx >= segments.length) return
-      const seg = segments[idx++]
-      const u   = makeUtt(seg.text, voice)
-      u.onend   = () => setTimeout(next, seg.pause)
-      window.speechSynthesis.speak(u)
-    }
-    next()
-  }
-
-  if (window.speechSynthesis.getVoices().length) {
-    speak(pickBestVoice())
-  } else {
-    window.speechSynthesis.addEventListener(
-      'voiceschanged',
-      () => speak(pickBestVoice()),
-      { once: true }
-    )
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// GUIÓN — Body scan (timings en segundos)
-// ═══════════════════════════════════════════════════════════════════════════════
-const BODY_SCAN = [
-  { t: 2,   bowl: true,  text: 'Bienvenida… a este momento. Encontrá una posición cómoda. Cerrá suavemente los ojos.' },
-  { t: 22,               text: 'Respirá profundo… Permitite estar aquí, ahora. Sin hacer nada… sin ir a ningún lado.' },
-  { t: 45,  bowl: true,  text: 'Llevá tu atención a la coronilla de la cabeza. Sentí ese punto de calma… de conexión.' },
-  { t: 78,               text: 'Bajá hacia la frente… los ojos… la mandíbula. Todo se suaviza… todo se afloja.' },
-  { t: 108, bowl: true,  text: 'El cuello… los hombros. Soltá cualquier peso que estés cargando. Ya no lo necesitás.' },
-  { t: 148,              text: 'Los brazos… los codos… las muñecas… las manos. Completamente relajadas y pesadas.' },
-  { t: 195, bowl: true,  text: 'El pecho… el corazón. Sentí ese latido tranquilo… que siempre te acompaña.' },
-  { t: 242,              text: 'El abdomen. Observá cómo se expande al inhalar… y descansa al exhalar.' },
-  { t: 288, bowl: true,  text: 'La espalda baja… las caderas. Todo descansa. Todo se apoya.' },
-  { t: 335,              text: 'Los muslos… las rodillas… pesados y presentes. Completamente en tierra.' },
-  { t: 372, bowl: true,  text: 'Las pantorrillas… los tobillos… los pies… cada dedo. Todo en paz.' },
-  { t: 420,              text: 'Ahora sentí tu cuerpo completo. Como una montaña… firme… tranquila… serena.' },
-  { t: 478,              text: 'Quedate en este silencio… por un momento más. Solo existís, aquí.' },
-  { t: 535, bowl: true,  text: 'Tomá tres respiraciones… profundas y conscientes.' },
-  { t: 562,              text: 'Cuando estés lista… moví suavemente los dedos… los pies… y abrí los ojos con calma.' },
-  { t: 588,              text: 'Gracias por este regalo de tiempo para vos. Que tengas un hermoso día.' },
-]
+// Cuencos tibetanos en segundos exactos — 8 min (480 s)
+// Apertura, luego uno cada ~72 s, cierre suave al final
+const BOWL_TIMES = new Set([5, 75, 148, 222, 296, 370, 435, 468])
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER: Anillo de progreso SVG
@@ -259,68 +157,54 @@ function BreathingTimer() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TIMER 2 — Body scan (voz + cuencos)
+// TIMER 2 — Cuencos tibetanos · 8 min (sin voz)
 // ═══════════════════════════════════════════════════════════════════════════════
-const BS_TOTAL = 10 * 60
+const BS_TOTAL = 8 * 60
 
 function BodyScanTimer() {
   const st    = useRef({ total: 0 })
-  const [d, setD] = useState({ total: 0, done: false, text: '' })
+  const [d, setD] = useState({ total: 0, done: false })
   const [run, setRun] = useState(false)
   const ctx   = useRef(null)
   const intv  = useRef(null)
-  const spoke = useRef(new Set())
 
   const tick = useCallback(() => {
     const s = st.current; s.total++
-    BODY_SCAN.forEach(({ t, text, bowl }) => {
-      if (s.total === t && !spoke.current.has(t)) {
-        spoke.current.add(t)
-        const delay = bowl ? 1300 : 0
-        if (bowl && ctx.current) playBowl(ctx.current, 396, 4.5, 0.24)
-        setTimeout(() => speakGuide(text), delay)
-        setD(p => ({ ...p, text }))
-      }
-    })
+    if (BOWL_TIMES.has(s.total) && ctx.current)
+      playBowl(ctx.current, 396, 5.5, 0.26)
     if (s.total >= BS_TOTAL) {
       clearInterval(intv.current); setRun(false)
-      if (ctx.current) playBowl(ctx.current, 396, 5.5, 0.3)
-      setD(p => ({ ...p, done: true })); return
+      if (ctx.current) playBowl(ctx.current, 396, 7, 0.32)
+      setD({ total: BS_TOTAL, done: true }); return
     }
-    setD(p => ({ ...p, total: s.total }))
+    setD({ total: s.total, done: false })
   }, [])
 
   const onStart = () => {
     if (!ctx.current) ctx.current = createAudioCtx()
+    playBowl(ctx.current, 396, 5.5, 0.26)
     setRun(true); intv.current = setInterval(tick, 1000)
   }
-  const onPause = () => { clearInterval(intv.current); window.speechSynthesis?.cancel(); setRun(false) }
+  const onPause = () => { clearInterval(intv.current); setRun(false) }
   const onReset = () => {
-    clearInterval(intv.current); window.speechSynthesis?.cancel(); setRun(false)
-    st.current = { total: 0 }; spoke.current = new Set()
-    setD({ total: 0, done: false, text: '' })
+    clearInterval(intv.current); setRun(false)
+    st.current = { total: 0 }
+    setD({ total: 0, done: false })
   }
-  useEffect(() => () => { clearInterval(intv.current); window.speechSynthesis?.cancel() }, [])
+  useEffect(() => () => clearInterval(intv.current), [])
 
   return (
     <div className="flex flex-col items-center gap-3 py-3">
       <Ring progress={d.total / BS_TOTAL} stroke="#8DA290" size={110}>
         <span className="text-xl font-light font-quicksand text-deep-green">{fmt(BS_TOTAL - d.total)}</span>
-        <span className="text-[10px] text-stone">body scan</span>
+        <span className="text-[10px] text-stone">cuencos</span>
       </Ring>
-
-      {d.text && (
-        <div className="bg-linen rounded-2xl p-3 text-center max-w-[280px] animate-fade-in">
-          <p className="text-xs text-deep-green/80 leading-relaxed italic">"{d.text}"</p>
-        </div>
-      )}
-      {!d.text && !d.done && (
+      {!d.done && (
         <p className="text-[11px] text-stone text-center max-w-[240px]">
-          🎵 Voz femenina + cuencos tibetanos te guiarán
+          🎵 Los cuencos tibetanos marcan el ritmo de tu práctica
         </p>
       )}
       {d.done && <p className="text-sm text-sage font-medium animate-fade-in">🌿 ¡Hermoso trabajo! En paz.</p>}
-
       <div className="flex gap-2">
         {!run && !d.done && <button onClick={onStart} className="btn-primary py-2 px-4 text-sm"><Play size={13} />{d.total > 0 ? 'Continuar' : 'Comenzar'}</button>}
         {run          && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
@@ -435,8 +319,8 @@ const CATEGORIES = [
       },
       {
         title: 'Body scan matutino',
-        duration: '10 min',
-        desc: 'Recorre tu cuerpo de cabeza a pies con una voz femenina guiada y cuencos tibetanos, liberando tensiones de la noche.',
+        duration: '8 min',
+        desc: 'Recorre mentalmente tu cuerpo de cabeza a pies al ritmo de cuencos tibetanos. Cada toque marca un nuevo punto de atención y soltura.',
         tag: 'Mañana · Energía',
         timer: 'bodyscan',
       },
