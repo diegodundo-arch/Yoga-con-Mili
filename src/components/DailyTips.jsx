@@ -55,9 +55,9 @@ function createWaterSource(ctx) {
   return { src, gain }
 }
 
-// Cuencos tibetanos en segundos exactos — 8 min (480 s)
-// Apertura, luego uno cada ~72 s, cierre suave al final
-const BOWL_TIMES = new Set([5, 75, 148, 222, 296, 370, 435, 468])
+// Ritmo continuo de cuencos — uno cada 20 s durante los 8 min
+// Alterna dos frecuencias (396 Hz / 432 Hz) para mayor riqueza armónica
+const BOWL_INTERVAL = 20
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER: Anillo de progreso SVG
@@ -170,19 +170,24 @@ function BodyScanTimer() {
 
   const tick = useCallback(() => {
     const s = st.current; s.total++
-    if (BOWL_TIMES.has(s.total) && ctx.current)
-      playBowl(ctx.current, 396, 5.5, 0.26)
     if (s.total >= BS_TOTAL) {
       clearInterval(intv.current); setRun(false)
-      if (ctx.current) playBowl(ctx.current, 396, 7, 0.32)
+      // Cuenco de cierre más largo y resonante
+      if (ctx.current) playBowl(ctx.current, 396, 8, 0.30)
       setD({ total: BS_TOTAL, done: true }); return
+    }
+    // Ritmo continuo: cuenco cada BOWL_INTERVAL segundos
+    // Alterna 396 Hz y 432 Hz para que no suene monótono
+    if (s.total % BOWL_INTERVAL === 0 && ctx.current) {
+      const freq = Math.floor(s.total / BOWL_INTERVAL) % 2 === 0 ? 396 : 432
+      playBowl(ctx.current, freq, 6, 0.22)
     }
     setD({ total: s.total, done: false })
   }, [])
 
   const onStart = () => {
     if (!ctx.current) ctx.current = createAudioCtx()
-    playBowl(ctx.current, 396, 5.5, 0.26)
+    playBowl(ctx.current, 396, 7, 0.28)   // cuenco de apertura
     setRun(true); intv.current = setInterval(tick, 1000)
   }
   const onPause = () => { clearInterval(intv.current); setRun(false) }
