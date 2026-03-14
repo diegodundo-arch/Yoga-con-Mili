@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" fill="none">
+  <g stroke="#C0653B" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+
+    <!-- Outer circle -->
+    <circle cx="80" cy="90" r="62"/>
+
+    <!-- Leaf — left of top, two lobes meeting at tip -->
+    <path d="M 73 46 C 60 38 54 24 63 18 C 72 12 80 28 73 46"/>
+    <path d="M 73 46 C 80 36 82 22 76 17 C 70 12 63 28 73 46"/>
+
+    <!-- Stem: leaf base → crown of head -->
+    <path d="M 73 46 C 75 54 78 60 80 66"/>
+
+    <!-- Head -->
+    <circle cx="80" cy="73" r="7"/>
+
+    <!-- Torso (two side curves) -->
+    <path d="M 76 80 C 73 88 72 97 74 103"/>
+    <path d="M 84 80 C 87 88 88 97 86 103"/>
+
+    <!-- Lotus seat — arc -->
+    <path d="M 48 120 Q 64 108 80 108 Q 96 108 112 120"/>
+    <!-- Left foot folded in -->
+    <path d="M 48 120 Q 51 127 62 124 Q 71 121 80 120"/>
+    <!-- Right foot folded in -->
+    <path d="M 112 120 Q 109 127 98 124 Q 89 121 80 120"/>
+
+    <!-- Roots (6 lines spreading below circle bottom ~152) -->
+    <path d="M 64 142 C 52 155 40 165 30 180"/>
+    <path d="M 70 146 C 61 161 52 176 46 192"/>
+    <path d="M 77 148 C 74 163 70 178 65 193"/>
+    <path d="M 85 148 C 89 163 94 178 97 193"/>
+    <path d="M 91 146 C 101 160 113 174 120 190"/>
+    <path d="M 97 142 C 110 154 124 165 132 179"/>
+
+  </g>
+</svg>
