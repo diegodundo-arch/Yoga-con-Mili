@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-off-white text-deep-green overflow-x-hidden;
+    min-height: 100dvh;
+    margin: 0;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+@layer components {
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-linen; }
+  ::-webkit-scrollbar-thumb { @apply bg-tan rounded-full; }
+
+  .zen-card {
+    @apply bg-white rounded-3xl shadow-sm border border-beige/60 overflow-hidden transition-all duration-300;
+  }
+  .zen-card:hover {
+    @apply shadow-md -translate-y-0.5;
+  }
+
+  .btn-primary {
+    @apply bg-deep-green text-off-white font-medium py-3 px-6 rounded-2xl
+           transition-all duration-200 active:scale-95 hover:bg-driftwood
+           flex items-center justify-center gap-2 cursor-pointer;
+  }
+
+  .btn-secondary {
+    @apply border border-tan text-driftwood font-medium py-3 px-6 rounded-2xl
+           transition-all duration-200 active:scale-95 hover:bg-beige/40
+           flex items-center justify-center gap-2 cursor-pointer;
+  }
+
+  .section-title {
+    @apply font-serif text-2xl text-deep-green leading-tight;
+  }
+
+  .section-subtitle {
+    @apply text-stone text-xs font-light tracking-widest uppercase;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

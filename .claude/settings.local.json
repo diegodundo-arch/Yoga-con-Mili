@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create vite@latest . -- --template react --yes)",
+      "Bash(npm create vite@latest yoga-con-mili -- --template react)",
+      "Bash(npm install)",
+      "Bash(npm install -D tailwindcss@3 postcss autoprefixer)",
+      "Bash(npm install lucide-react)",
+      "Bash(npx tailwindcss init -p)",
+      "Bash(npm run build)"
+    ]
+  }
+}
