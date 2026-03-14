@@ -55,48 +55,77 @@ function createWaterSource(ctx) {
   return { src, gain }
 }
 
-/** Voz femenina guiada — Web Speech API */
+/** Selecciona la voz española más cálida disponible
+ *  Prioridad: Google neural > Microsoft Online > Apple nativa > cualquier español */
+function pickBestVoice() {
+  const v = window.speechSynthesis.getVoices()
+  return (
+    v.find(x => /google\s*(es|español|spanish)/i.test(x.name)) ||
+    v.find(x => /microsoft.*(sabina|helena|laura|dalia|renata|paulina).*(online)?/i.test(x.name)) ||
+    v.find(x => /mónica|paulina|esperanza|camila|valeria/i.test(x.name) && x.lang.startsWith('es')) ||
+    v.find(x => x.lang.startsWith('es') && x.localService === false) ||
+    v.find(x => x.lang.startsWith('es'))
+  )
+}
+
+/** Habla el texto dividido en frases, con pausa cálida entre cada una */
 function speakGuide(text) {
   if (!window.speechSynthesis) return
   window.speechSynthesis.cancel()
-  const utt = new SpeechSynthesisUtterance(text)
-  utt.lang   = 'es-AR'
-  utt.rate   = 0.78
-  utt.pitch  = 1.05
-  utt.volume = 1.0
-  const loadVoice = () => {
-    const voices  = window.speechSynthesis.getVoices()
-    const female  = voices.find(v =>
-      v.lang.startsWith('es') &&
-      /paulina|monica|female|femenina|mujer/i.test(v.name)
-    ) || voices.find(v => v.lang.startsWith('es'))
-    if (female) utt.voice = female
+
+  // Separar en frases por ".", "…", "!" o "?" manteniendo la puntuación
+  const parts = text
+    .split(/(?<=[.…!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+
+  const makeUtt = (txt, voice) => {
+    const u = new SpeechSynthesisUtterance(txt)
+    u.lang   = 'es-AR'
+    u.rate   = 0.72   // más lento = sensación meditativa
+    u.pitch  = 0.87   // más bajo = más cálido, menos robótico
+    u.volume = 1.0
+    if (voice) u.voice = voice
+    return u
   }
-  window.speechSynthesis.getVoices().length
-    ? loadVoice()
-    : window.speechSynthesis.addEventListener('voiceschanged', loadVoice, { once: true })
-  window.speechSynthesis.speak(utt)
+
+  const speak = (voice) => {
+    let idx = 0
+    const next = () => {
+      if (idx >= parts.length) return
+      const u = makeUtt(parts[idx++], voice)
+      u.onend = () => setTimeout(next, 420)  // pausa suave entre frases
+      window.speechSynthesis.speak(u)
+    }
+    next()
+  }
+
+  if (window.speechSynthesis.getVoices().length) {
+    speak(pickBestVoice())
+  } else {
+    window.speechSynthesis.addEventListener('voiceschanged', () => speak(pickBestVoice()), { once: true })
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GUIÓN — Body scan (timings en segundos)
 // ═══════════════════════════════════════════════════════════════════════════════
 const BODY_SCAN = [
-  { t: 2,   bowl: true,  text: 'Bienvenida a este momento. Encontrá una posición cómoda y cerrá suavemente los ojos.' },
-  { t: 22,               text: 'Respirá profundo. Permitite estar aquí, ahora. Sin hacer nada, sin ir a ningún lado.' },
-  { t: 45,  bowl: true,  text: 'Llevá tu atención a la coronilla de la cabeza. Sentí ese punto de conexión con lo que te rodea.' },
-  { t: 78,               text: 'Bajá hacia la frente, los ojos, la mandíbula. Todo se suaviza.' },
-  { t: 108, bowl: true,  text: 'El cuello... los hombros. Soltá cualquier peso que estés cargando.' },
-  { t: 148,              text: 'Los brazos, los codos, las muñecas, las manos. Completamente relajados y pesados.' },
-  { t: 195, bowl: true,  text: 'El pecho, el corazón. Sentí ese latido tranquilo que siempre te acompaña.' },
-  { t: 242,              text: 'El abdomen. Observá cómo sube al inhalar... y baja al exhalar.' },
-  { t: 288, bowl: true,  text: 'La espalda baja, las caderas. Todo descansa, todo se apoya.' },
-  { t: 335,              text: 'Los muslos, las rodillas. Pesados y presentes.' },
-  { t: 372, bowl: true,  text: 'Las pantorrillas, los tobillos, los pies, los dedos. Cada parte de vos, presente y en paz.' },
-  { t: 420,              text: 'Ahora sentí tu cuerpo completo. Como una montaña. Firme, tranquila, serena.' },
-  { t: 478,              text: 'Quedate en este silencio por un momento más.' },
-  { t: 535, bowl: true,  text: 'Tomá tres respiraciones profundas y conscientes.' },
-  { t: 562,              text: 'Cuando estés lista, moví suavemente los dedos, los pies, y abrí los ojos con calma.' },
+  { t: 2,   bowl: true,  text: 'Bienvenida… a este momento. Encontrá una posición cómoda. Cerrá suavemente los ojos.' },
+  { t: 22,               text: 'Respirá profundo… Permitite estar aquí, ahora. Sin hacer nada… sin ir a ningún lado.' },
+  { t: 45,  bowl: true,  text: 'Llevá tu atención a la coronilla de la cabeza. Sentí ese punto de calma… de conexión.' },
+  { t: 78,               text: 'Bajá hacia la frente… los ojos… la mandíbula. Todo se suaviza… todo se afloja.' },
+  { t: 108, bowl: true,  text: 'El cuello… los hombros. Soltá cualquier peso que estés cargando. Ya no lo necesitás.' },
+  { t: 148,              text: 'Los brazos… los codos… las muñecas… las manos. Completamente relajadas y pesadas.' },
+  { t: 195, bowl: true,  text: 'El pecho… el corazón. Sentí ese latido tranquilo… que siempre te acompaña.' },
+  { t: 242,              text: 'El abdomen. Observá cómo se expande al inhalar… y descansa al exhalar.' },
+  { t: 288, bowl: true,  text: 'La espalda baja… las caderas. Todo descansa. Todo se apoya.' },
+  { t: 335,              text: 'Los muslos… las rodillas… pesados y presentes. Completamente en tierra.' },
+  { t: 372, bowl: true,  text: 'Las pantorrillas… los tobillos… los pies… cada dedo. Todo en paz.' },
+  { t: 420,              text: 'Ahora sentí tu cuerpo completo. Como una montaña… firme… tranquila… serena.' },
+  { t: 478,              text: 'Quedate en este silencio… por un momento más. Solo existís, aquí.' },
+  { t: 535, bowl: true,  text: 'Tomá tres respiraciones… profundas y conscientes.' },
+  { t: 562,              text: 'Cuando estés lista… moví suavemente los dedos… los pies… y abrí los ojos con calma.' },
   { t: 588,              text: 'Gracias por este regalo de tiempo para vos. Que tengas un hermoso día.' },
 ]
 
