@@ -98,19 +98,19 @@ function speakGuide(text) {
   const segments = []
   text.split('…').forEach((chunk, ci, arr) => {
     const subs = chunk.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
-    subs.forEach((s, si) => {
-      segments.push({ text: s, pause: 500 })
+    subs.forEach((s) => {
+      segments.push({ text: s, pause: 580 })
     })
-    // Pausa larga después de cada bloque separado por "…" (excepto el último)
+    // Pausa de respiración después de cada "…" (simula inhalar antes de seguir)
     if (ci < arr.length - 1 && segments.length)
-      segments[segments.length - 1].pause = 740
+      segments[segments.length - 1].pause = 900
   })
 
   const makeUtt = (txt, voice) => {
     const u = new SpeechSynthesisUtterance(txt)
     u.lang   = 'es-AR'
-    u.rate   = 0.80   // cadencia contemplativa sin sonar arrastrado
-    u.pitch  = 1.0    // neutro = más humano; bajar pitch hace la voz monócorde
+    u.rate   = 0.88   // cerca del habla natural — el ritmo meditativo lo dan las pausas, no estirar fonemas
+    u.pitch  = 1.08   // leve calidez femenina sin elevar a agudo
     u.volume = 0.96
     if (voice) u.voice = voice
     return u
