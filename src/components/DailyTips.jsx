@@ -55,36 +55,63 @@ function createWaterSource(ctx) {
   return { src, gain }
 }
 
-/** Selecciona la voz española más cálida disponible
- *  Prioridad: Google neural > Microsoft Online > Apple nativa > cualquier español */
+/** Selecciona la voz española más natural disponible.
+ *  Las voces neurales/online suenan humanas; las locales del sistema suenan robóticas
+ *  independientemente de los parámetros.
+ *  Prioridad: Google neural > Microsoft Online > Apple nativa > online genérica > local */
 function pickBestVoice() {
   const v = window.speechSynthesis.getVoices()
-  return (
-    v.find(x => /google\s*(es|español|spanish)/i.test(x.name)) ||
-    v.find(x => /microsoft.*(sabina|helena|laura|dalia|renata|paulina).*(online)?/i.test(x.name)) ||
-    v.find(x => /mónica|paulina|esperanza|camila|valeria/i.test(x.name) && x.lang.startsWith('es')) ||
-    v.find(x => x.lang.startsWith('es') && x.localService === false) ||
-    v.find(x => x.lang.startsWith('es'))
+
+  // Google Español (Chrome en desktop/Android — voz neural de alta calidad)
+  const google = v.find(x => /google\s*(es|español|spanish)/i.test(x.name))
+  if (google) return google
+
+  // Microsoft Online — voces neurales en Edge
+  const ms = v.find(x =>
+    /microsoft.*(sabina|dalia|renata|laura|helena|camila).*(online)/i.test(x.name)
   )
+  if (ms) return ms
+
+  // Apple — Mónica (es-ES) y Paulina (es-MX) son las más naturales en iOS/macOS
+  const apple = v.find(x =>
+    /^(mónica|paulina|esperanza|jorge)$/i.test(x.name) && x.lang.startsWith('es')
+  )
+  if (apple) return apple
+
+  // Cualquier voz online en español (mejor que las locales)
+  const online = v.find(x => x.lang.startsWith('es') && x.localService === false)
+  if (online) return online
+
+  // Fallback: cualquier español disponible
+  return v.find(x => x.lang.startsWith('es'))
 }
 
-/** Habla el texto dividido en frases, con pausa cálida entre cada una */
+/** Divide el texto en fragmentos pequeños para respirar entre ellos.
+ *  Cada "…" se convierte en una pausa larga (700ms),
+ *  cada "." en una pausa normal (500ms).
+ *  pitch 1.0 = neutro/natural; rate 0.80 = meditativo sin arrastrar. */
 function speakGuide(text) {
   if (!window.speechSynthesis) return
   window.speechSynthesis.cancel()
 
-  // Separar en frases por ".", "…", "!" o "?" manteniendo la puntuación
-  const parts = text
-    .split(/(?<=[.…!?])\s+/)
-    .map(s => s.trim())
-    .filter(Boolean)
+  // Separar por "…" y "." — los "…" generan pausa más larga
+  const segments = []
+  text.split('…').forEach((chunk, ci, arr) => {
+    const subs = chunk.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean)
+    subs.forEach((s, si) => {
+      segments.push({ text: s, pause: 500 })
+    })
+    // Pausa larga después de cada bloque separado por "…" (excepto el último)
+    if (ci < arr.length - 1 && segments.length)
+      segments[segments.length - 1].pause = 740
+  })
 
   const makeUtt = (txt, voice) => {
     const u = new SpeechSynthesisUtterance(txt)
     u.lang   = 'es-AR'
-    u.rate   = 0.72   // más lento = sensación meditativa
-    u.pitch  = 0.87   // más bajo = más cálido, menos robótico
-    u.volume = 1.0
+    u.rate   = 0.80   // cadencia contemplativa sin sonar arrastrado
+    u.pitch  = 1.0    // neutro = más humano; bajar pitch hace la voz monócorde
+    u.volume = 0.96
     if (voice) u.voice = voice
     return u
   }
@@ -92,9 +119,10 @@ function speakGuide(text) {
   const speak = (voice) => {
     let idx = 0
     const next = () => {
-      if (idx >= parts.length) return
-      const u = makeUtt(parts[idx++], voice)
-      u.onend = () => setTimeout(next, 420)  // pausa suave entre frases
+      if (idx >= segments.length) return
+      const seg = segments[idx++]
+      const u   = makeUtt(seg.text, voice)
+      u.onend   = () => setTimeout(next, seg.pause)
       window.speechSynthesis.speak(u)
     }
     next()
@@ -103,7 +131,11 @@ function speakGuide(text) {
   if (window.speechSynthesis.getVoices().length) {
     speak(pickBestVoice())
   } else {
-    window.speechSynthesis.addEventListener('voiceschanged', () => speak(pickBestVoice()), { once: true })
+    window.speechSynthesis.addEventListener(
+      'voiceschanged',
+      () => speak(pickBestVoice()),
+      { once: true }
+    )
   }
 }
 
