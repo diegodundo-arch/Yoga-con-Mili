@@ -22,7 +22,7 @@ export default function App() {
   const View = VIEWS[activeView] ?? Home
 
   return (
-    <div className="min-h-dvh bg-off-white flex flex-col max-w-md mx-auto relative">
+    <div className="min-h-dvh bg-linen flex flex-col max-w-md mx-auto relative">
       <main className="flex-1 overflow-y-auto pb-24 animate-fade-in">
         <View navigate={setActiveView} />
       </main>

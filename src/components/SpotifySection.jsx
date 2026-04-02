@@ -1,7 +1,8 @@
 import { ExternalLink, Music2 } from 'lucide-react'
+import { SPOTIFY_PLAYLIST_ID, SPOTIFY_PLAYLIST_URL } from '../constants/config'
 
-const PLAYLIST_ID  = '4IXsbZMxsklphPuQZ3xmmr'
-const PLAYLIST_URL = 'https://open.spotify.com/playlist/4IXsbZMxsklphPuQZ3xmmr?si=G8hBkO4DTXS9TbhQQ_4MiA&pi=CXXIofJkQKeko'
+const PLAYLIST_ID  = SPOTIFY_PLAYLIST_ID
+const PLAYLIST_URL = SPOTIFY_PLAYLIST_URL
 
 export default function SpotifySection() {
   return (

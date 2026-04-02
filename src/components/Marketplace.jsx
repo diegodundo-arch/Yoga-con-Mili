@@ -1,12 +1,11 @@
 import { MessageCircle, ShoppingBag, Sparkles, Tag } from 'lucide-react'
-
-const WHATSAPP_NUMBER = '5491159633151'
+import { WHATSAPP_NUMBER } from '../constants/config'
 
 const COMING_SOON_ITEMS = [
-  { emoji: '🧘', label: 'Mats premium' },
-  { emoji: '🪨', label: 'Bloques de cork' },
-  { emoji: '🌿', label: 'Accesorios eco' },
-  { emoji: '🛍️', label: 'Bolsas de lino' },
+  { id: 'mats',       emoji: '🧘', label: 'Mats premium'    },
+  { id: 'bloques',    emoji: '🪨', label: 'Bloques de cork'  },
+  { id: 'accesorios', emoji: '🌿', label: 'Accesorios eco'   },
+  { id: 'bolsas',     emoji: '🛍️', label: 'Bolsas de lino'  },
 ]
 
 export default function Marketplace() {
@@ -48,8 +47,8 @@ export default function Marketplace() {
 
         {/* Grid de items que vienen */}
         <div className="grid grid-cols-4 divide-x divide-beige/60 border-t border-beige/60">
-          {COMING_SOON_ITEMS.map(({ emoji, label }) => (
-            <div key={label} className="flex flex-col items-center gap-1 py-3 px-1">
+          {COMING_SOON_ITEMS.map(({ id, emoji, label }) => (
+            <div key={id} className="flex flex-col items-center gap-1 py-3 px-1">
               <span className="text-xl">{emoji}</span>
               <span className="text-[9px] text-stone text-center leading-tight">{label}</span>
             </div>

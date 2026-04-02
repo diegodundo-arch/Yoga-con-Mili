@@ -15,7 +15,6 @@ export default {
         clay:      '#C0653B', // terracota (brand primary)
         driftwood: '#A0785A', // madera oscura
         stone:     '#9E9E8E', // piedra / subtexto
-        'off-white': '#F5F1E8', // fondo crema (brand)
         'deep-green': '#3C2E1D', // marrón profundo (brand text)
       },
       fontFamily: {

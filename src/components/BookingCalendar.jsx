@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, ExternalLink, Clock } from 'lucide-react'
+import { MERCADOPAGO_URL } from '../constants/config'
 
 // ── Horario semanal de clases ─────────────────────────────────────────────────
 // 0=Dom 1=Lun 2=Mar 3=Mié 4=Jue 5=Vie 6=Sáb
@@ -23,9 +24,6 @@ function getClassesForDate(year, month, day) {
   if (dow === 6) return SCHEDULE.saturday
   return SCHEDULE.weekday
 }
-
-// URL de Mercado Pago — reemplazar con tu link real
-const MERCADOPAGO_URL = 'http://link.mercadopago.com.ar/yogaconmili'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MONTHS = [
@@ -67,11 +65,13 @@ export default function BookingCalendar() {
     if (currentMonth === 0) { setCurrentYear(y => y - 1); setCurrentMonth(11) }
     else setCurrentMonth(m => m - 1)
     setSelectedDay(null)
+    setSelectedClass(null)  // resetear clase al cambiar de mes
   }
   const nextMonth = () => {
     if (currentMonth === 11) { setCurrentYear(y => y + 1); setCurrentMonth(0) }
     else setCurrentMonth(m => m + 1)
     setSelectedDay(null)
+    setSelectedClass(null)  // resetear clase al cambiar de mes
   }
 
   const handleBook = () => {
@@ -133,6 +133,8 @@ export default function BookingCalendar() {
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
+                aria-label={`${day} de ${MONTHS[currentMonth]}`}
+                aria-pressed={isSelected}
                 className={`aspect-square flex items-center justify-center text-sm rounded-xl
                             transition-all duration-150 font-medium
                             ${isSelected

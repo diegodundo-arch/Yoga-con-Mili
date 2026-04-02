@@ -67,7 +67,7 @@ function Ring({ progress, stroke = '#C0653B', size = 120, children }) {
   const circ = 2 * Math.PI * r
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 100 100" width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }}>
         <circle cx="50" cy="50" r={r} fill="none" stroke="#EDE4D8" strokeWidth="6" />
         <circle
           cx="50" cy="50" r={r} fill="none"
@@ -134,6 +134,12 @@ function BreathingTimer() {
     setD({ ph: 0, phT: 0, total: 0, done: false })
   }
 
+  // Cleanup: detener interval + cerrar AudioContext al desmontar
+  useEffect(() => () => {
+    clearInterval(intv.current)
+    if (ctx.current?.state !== 'closed') ctx.current?.close()
+  }, [])
+
   const ph = PHASES[d.ph]
   return (
     <div className="flex flex-col items-center gap-4 py-3">
@@ -150,7 +156,7 @@ function BreathingTimer() {
       <div className="flex gap-2">
         {!run && !d.done && <button onClick={onStart} className="btn-primary py-2 px-4 text-sm"><Play size={13} />{d.total > 0 ? 'Continuar' : 'Comenzar'}</button>}
         {run         && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3"><RotateCcw size={13} /></button>}
+        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
       </div>
     </div>
   )
@@ -196,7 +202,11 @@ function BodyScanTimer() {
     st.current = { total: 0 }
     setD({ total: 0, done: false })
   }
-  useEffect(() => () => clearInterval(intv.current), [])
+  // Cleanup: detener interval + cerrar AudioContext al desmontar
+  useEffect(() => () => {
+    clearInterval(intv.current)
+    if (ctx.current?.state !== 'closed') ctx.current?.close()
+  }, [])
 
   return (
     <div className="flex flex-col items-center gap-3 py-3">
@@ -213,7 +223,7 @@ function BodyScanTimer() {
       <div className="flex gap-2">
         {!run && !d.done && <button onClick={onStart} className="btn-primary py-2 px-4 text-sm"><Play size={13} />{d.total > 0 ? 'Continuar' : 'Comenzar'}</button>}
         {run          && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0  && <button onClick={onReset} className="btn-secondary py-2 px-3"><RotateCcw size={13} /></button>}
+        {d.total > 0  && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
       </div>
     </div>
   )
@@ -272,15 +282,25 @@ function LakeTimer() {
 
   const onReset = () => {
     clearInterval(intv.current)
-    try { water.current?.src.stop() } catch {}
+    try {
+      water.current?.src.stop()
+      water.current?.src.disconnect()
+      water.current?.gain.disconnect()
+    } catch {}
     water.current = null
     setRun(false); st.current = { total: 0 }
     setD({ total: 0, done: false })
   }
 
+  // Cleanup: detener interval, nodos Web Audio y cerrar AudioContext al desmontar
   useEffect(() => () => {
     clearInterval(intv.current)
-    try { water.current?.src.stop() } catch {}
+    try {
+      water.current?.src.stop()
+      water.current?.src.disconnect()
+      water.current?.gain.disconnect()
+    } catch {}
+    if (ctx.current?.state !== 'closed') ctx.current?.close()
   }, [])
 
   return (
@@ -297,7 +317,7 @@ function LakeTimer() {
         {!run && !d.done && d.total === 0 && <button onClick={onStart}  className="btn-primary py-2 px-4 text-sm"><Play size={13} />Comenzar</button>}
         {!run && !d.done && d.total > 0  && <button onClick={onResume} className="btn-primary py-2 px-4 text-sm"><Play size={13} />Continuar</button>}
         {run && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3"><RotateCcw size={13} /></button>}
+        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
       </div>
     </div>
   )
