@@ -5,10 +5,6 @@ import { Brain, Leaf, Sparkles, ChevronDown, ChevronUp, Play, Pause, RotateCcw, 
 // AUDIO UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function createAudioCtx() {
-  return new (window.AudioContext || window.webkitAudioContext)()
-}
-
 /** Cuenco tibetano — dos osciladores ligeramente desafinados */
 function playBowl(ctx, freq = 396, dur = 4.5, vol = 0.28) {
   if (!ctx) return
@@ -41,13 +37,13 @@ function createWaterSource(ctx) {
       d[i]  = last * 3.8
     }
   }
-  const src    = ctx.createBufferSource()
-  src.buffer   = buf
-  src.loop     = true
-  const lpf    = ctx.createBiquadFilter()
-  lpf.type     = 'lowpass'
+  const src  = ctx.createBufferSource()
+  src.buffer = buf
+  src.loop   = true
+  const lpf  = ctx.createBiquadFilter()
+  lpf.type   = 'lowpass'
   lpf.frequency.value = 750
-  const gain   = ctx.createGain()
+  const gain = ctx.createGain()
   gain.gain.value = 0.48
   src.connect(lpf)
   lpf.connect(gain)
@@ -55,12 +51,67 @@ function createWaterSource(ctx) {
   return { src, gain }
 }
 
-// Ritmo continuo de cuencos — uno cada 20 s durante los 8 min
-// Alterna dos frecuencias (396 Hz / 432 Hz) para mayor riqueza armónica
+// Cuencos cada 20 s — alterna 396 Hz / 432 Hz para riqueza armónica
 const BOWL_INTERVAL = 20
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HELPER: Anillo de progreso SVG
+// HOOK: ciclo de vida del AudioContext
+// Inicialización lazy · cierre garantizado al desmontar el componente
+// ═══════════════════════════════════════════════════════════════════════════════
+function useAudioContext() {
+  const ctx = useRef(null)
+
+  // init() crea el AudioContext la primera vez que el usuario interactúa
+  // (requerido por los navegadores para no autoplay sin gesto)
+  const init = useCallback(() => {
+    if (!ctx.current) ctx.current = new (window.AudioContext || window.webkitAudioContext)()
+    return ctx.current
+  }, [])
+
+  useEffect(() => () => {
+    if (ctx.current?.state !== 'closed') ctx.current?.close()
+  }, [])
+
+  return { ctx, init }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPONENTE: controles de timer
+// Unifica el patrón Comenzar / Continuar / Pausar / Reiniciar
+// onResume: opcional — LakeTimer lo usa para hacer fade del agua al reanudar
+// ═══════════════════════════════════════════════════════════════════════════════
+function TimerControls({ running, done, elapsed, onStart, onPause, onReset, onResume }) {
+  const started  = elapsed > 0
+  const resumeFn = onResume ?? onStart
+
+  return (
+    <div className="flex gap-2">
+      {!running && !done && !started && (
+        <button onClick={onStart} className="btn-primary py-2 px-4 text-sm">
+          <Play size={13} />Comenzar
+        </button>
+      )}
+      {!running && !done && started && (
+        <button onClick={resumeFn} className="btn-primary py-2 px-4 text-sm">
+          <Play size={13} />Continuar
+        </button>
+      )}
+      {running && (
+        <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm">
+          <Pause size={13} />Pausar
+        </button>
+      )}
+      {started && (
+        <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar">
+          <RotateCcw size={13} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER: anillo SVG de progreso
 // ═══════════════════════════════════════════════════════════════════════════════
 function Ring({ progress, stroke = '#C0653B', size = 120, children }) {
   const r    = 42
@@ -101,31 +152,33 @@ const PHASES = [
 const B_TOTAL = 5 * 60
 
 function BreathingTimer() {
-  const st     = useRef({ ph: 0, phT: 0, total: 0 })
+  const { ctx, init } = useAudioContext()
+  const st   = useRef({ ph: 0, phT: 0, total: 0 })
   const [d, setD] = useState({ ph: 0, phT: 0, total: 0, done: false })
   const [run, setRun] = useState(false)
-  const ctx    = useRef(null)
-  const intv   = useRef(null)
+  const intv = useRef(null)
 
+  // ctx es un ref estable — no necesita estar en las deps de useCallback
   const tick = useCallback(() => {
     const s = st.current
     s.total++; s.phT++
     if (s.phT >= PHASES[s.ph].secs) {
       s.ph = (s.ph + 1) % 3; s.phT = 0
-      if (ctx.current) playBowl(ctx.current, 528, 1.4, 0.18)
+      playBowl(ctx.current, 528, 1.4, 0.18)
     }
     if (s.total >= B_TOTAL) {
       clearInterval(intv.current); setRun(false)
-      if (ctx.current) playBowl(ctx.current, 396, 4.5, 0.3)
+      playBowl(ctx.current, 396, 4.5, 0.3)
       setD({ ...s, done: true }); return
     }
     setD({ ...s, done: false })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onStart = () => {
-    if (!ctx.current) ctx.current = createAudioCtx()
+    init()
     playBowl(ctx.current, 396, 3, 0.28)
-    setRun(true); intv.current = setInterval(tick, 1000)
+    setRun(true)
+    intv.current = setInterval(tick, 1000)
   }
   const onPause = () => { clearInterval(intv.current); setRun(false) }
   const onReset = () => {
@@ -134,11 +187,8 @@ function BreathingTimer() {
     setD({ ph: 0, phT: 0, total: 0, done: false })
   }
 
-  // Cleanup: detener interval + cerrar AudioContext al desmontar
-  useEffect(() => () => {
-    clearInterval(intv.current)
-    if (ctx.current?.state !== 'closed') ctx.current?.close()
-  }, [])
+  // ctx.close() lo maneja useAudioContext — solo necesitamos limpiar el interval
+  useEffect(() => () => clearInterval(intv.current), [])
 
   const ph = PHASES[d.ph]
   return (
@@ -153,48 +203,45 @@ function BreathingTimer() {
         <p className="text-[10px] text-stone tracking-wide">restantes · 4 — 7 — 8</p>
       </div>
       {d.done && <p className="text-sm text-sage font-medium animate-fade-in">✨ ¡Sesión completada!</p>}
-      <div className="flex gap-2">
-        {!run && !d.done && <button onClick={onStart} className="btn-primary py-2 px-4 text-sm"><Play size={13} />{d.total > 0 ? 'Continuar' : 'Comenzar'}</button>}
-        {run         && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
-      </div>
+      <TimerControls
+        running={run} done={d.done} elapsed={d.total}
+        onStart={onStart} onPause={onPause} onReset={onReset}
+      />
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TIMER 2 — Cuencos tibetanos · 8 min (sin voz)
+// TIMER 2 — Cuencos tibetanos · 8 min
 // ═══════════════════════════════════════════════════════════════════════════════
 const BS_TOTAL = 8 * 60
 
 function BodyScanTimer() {
-  const st    = useRef({ total: 0 })
+  const { ctx, init } = useAudioContext()
+  const st   = useRef({ total: 0 })
   const [d, setD] = useState({ total: 0, done: false })
   const [run, setRun] = useState(false)
-  const ctx   = useRef(null)
-  const intv  = useRef(null)
+  const intv = useRef(null)
 
   const tick = useCallback(() => {
     const s = st.current; s.total++
     if (s.total >= BS_TOTAL) {
       clearInterval(intv.current); setRun(false)
-      // Cuenco de cierre más largo y resonante
-      if (ctx.current) playBowl(ctx.current, 396, 8, 0.30)
+      playBowl(ctx.current, 396, 8, 0.30)
       setD({ total: BS_TOTAL, done: true }); return
     }
-    // Ritmo continuo: cuenco cada BOWL_INTERVAL segundos
-    // Alterna 396 Hz y 432 Hz para que no suene monótono
-    if (s.total % BOWL_INTERVAL === 0 && ctx.current) {
+    if (s.total % BOWL_INTERVAL === 0) {
       const freq = Math.floor(s.total / BOWL_INTERVAL) % 2 === 0 ? 396 : 432
       playBowl(ctx.current, freq, 6, 0.22)
     }
     setD({ total: s.total, done: false })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onStart = () => {
-    if (!ctx.current) ctx.current = createAudioCtx()
-    playBowl(ctx.current, 396, 7, 0.28)   // cuenco de apertura
-    setRun(true); intv.current = setInterval(tick, 1000)
+    init()
+    playBowl(ctx.current, 396, 7, 0.28)
+    setRun(true)
+    intv.current = setInterval(tick, 1000)
   }
   const onPause = () => { clearInterval(intv.current); setRun(false) }
   const onReset = () => {
@@ -202,11 +249,8 @@ function BodyScanTimer() {
     st.current = { total: 0 }
     setD({ total: 0, done: false })
   }
-  // Cleanup: detener interval + cerrar AudioContext al desmontar
-  useEffect(() => () => {
-    clearInterval(intv.current)
-    if (ctx.current?.state !== 'closed') ctx.current?.close()
-  }, [])
+
+  useEffect(() => () => clearInterval(intv.current), [])
 
   return (
     <div className="flex flex-col items-center gap-3 py-3">
@@ -220,11 +264,10 @@ function BodyScanTimer() {
         </p>
       )}
       {d.done && <p className="text-sm text-sage font-medium animate-fade-in">🌿 ¡Hermoso trabajo! En paz.</p>}
-      <div className="flex gap-2">
-        {!run && !d.done && <button onClick={onStart} className="btn-primary py-2 px-4 text-sm"><Play size={13} />{d.total > 0 ? 'Continuar' : 'Comenzar'}</button>}
-        {run          && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0  && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
-      </div>
+      <TimerControls
+        running={run} done={d.done} elapsed={d.total}
+        onStart={onStart} onPause={onPause} onReset={onReset}
+      />
     </div>
   )
 }
@@ -234,30 +277,37 @@ function BodyScanTimer() {
 // ═══════════════════════════════════════════════════════════════════════════════
 const LAKE_TOTAL = 15 * 60
 
+function stopWater(water) {
+  try {
+    water?.src.stop()
+    water?.src.disconnect()
+    water?.gain.disconnect()
+  } catch {}
+}
+
 function LakeTimer() {
-  const st     = useRef({ total: 0 })
+  const { ctx, init } = useAudioContext()
+  const st    = useRef({ total: 0 })
   const [d, setD] = useState({ total: 0, done: false })
   const [run, setRun] = useState(false)
-  const ctx    = useRef(null)
-  const water  = useRef(null)
-  const intv   = useRef(null)
+  const water = useRef(null)
+  const intv  = useRef(null)
 
   const startInterval = useCallback(() => {
     intv.current = setInterval(() => {
       const s = st.current; s.total++
       if (s.total >= LAKE_TOTAL) {
         clearInterval(intv.current)
-        try { water.current?.src.stop() } catch {}
-        water.current = null
-        if (ctx.current) playBowl(ctx.current, 396, 5.5, 0.3)
+        stopWater(water.current); water.current = null
+        playBowl(ctx.current, 396, 5.5, 0.3)
         setRun(false); setD({ total: LAKE_TOTAL, done: true }); return
       }
       setD({ total: s.total, done: false })
     }, 1000)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onStart = () => {
-    if (!ctx.current) ctx.current = createAudioCtx()
+    init()
     playBowl(ctx.current, 174, 6, 0.22)
     if (!water.current) {
       const w = createWaterSource(ctx.current)
@@ -267,40 +317,28 @@ function LakeTimer() {
     setRun(true); startInterval()
   }
 
-  const onPause = () => {
-    clearInterval(intv.current)
-    if (water.current && ctx.current)
-      water.current.gain.gain.setTargetAtTime(0, ctx.current.currentTime, 0.6)
-    setRun(false)
+  // onResume: reanuda el agua con fade-in (no crea nueva fuente)
+  const onResume = () => {
+    if (water.current) water.current.gain.gain.setTargetAtTime(0.48, ctx.current.currentTime, 0.6)
+    setRun(true); startInterval()
   }
 
-  const onResume = () => {
-    if (water.current && ctx.current)
-      water.current.gain.gain.setTargetAtTime(0.48, ctx.current.currentTime, 0.6)
-    setRun(true); startInterval()
+  const onPause = () => {
+    clearInterval(intv.current)
+    if (water.current) water.current.gain.gain.setTargetAtTime(0, ctx.current.currentTime, 0.6)
+    setRun(false)
   }
 
   const onReset = () => {
     clearInterval(intv.current)
-    try {
-      water.current?.src.stop()
-      water.current?.src.disconnect()
-      water.current?.gain.disconnect()
-    } catch {}
-    water.current = null
+    stopWater(water.current); water.current = null
     setRun(false); st.current = { total: 0 }
     setD({ total: 0, done: false })
   }
 
-  // Cleanup: detener interval, nodos Web Audio y cerrar AudioContext al desmontar
   useEffect(() => () => {
     clearInterval(intv.current)
-    try {
-      water.current?.src.stop()
-      water.current?.src.disconnect()
-      water.current?.gain.disconnect()
-    } catch {}
-    if (ctx.current?.state !== 'closed') ctx.current?.close()
+    stopWater(water.current)
   }, [])
 
   return (
@@ -313,18 +351,16 @@ function LakeTimer() {
         🌊 Sonido de agua relajante · Visualizá tu mente como un lago sereno
       </p>
       {d.done && <p className="text-sm text-sage font-medium animate-fade-in">🌿 Meditación completada.</p>}
-      <div className="flex gap-2">
-        {!run && !d.done && d.total === 0 && <button onClick={onStart}  className="btn-primary py-2 px-4 text-sm"><Play size={13} />Comenzar</button>}
-        {!run && !d.done && d.total > 0  && <button onClick={onResume} className="btn-primary py-2 px-4 text-sm"><Play size={13} />Continuar</button>}
-        {run && <button onClick={onPause} className="btn-secondary py-2 px-4 text-sm"><Pause size={13} />Pausar</button>}
-        {d.total > 0 && <button onClick={onReset} className="btn-secondary py-2 px-3" aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>}
-      </div>
+      <TimerControls
+        running={run} done={d.done} elapsed={d.total}
+        onStart={onStart} onPause={onPause} onReset={onReset} onResume={onResume}
+      />
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONTENIDO
+// CONTENIDO ESTÁTICO
 // ═══════════════════════════════════════════════════════════════════════════════
 const CATEGORIES = [
   {
@@ -416,11 +452,14 @@ const CATEGORIES = [
   },
 ]
 
+const TIMER_MAP = { breathing: BreathingTimer, bodyscan: BodyScanTimer, lake: LakeTimer }
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TipCard
 // ═══════════════════════════════════════════════════════════════════════════════
 function TipCard({ title, duration, desc, tag, timer }) {
   const [open, setOpen] = useState(false)
+  const TimerComponent  = timer ? TIMER_MAP[timer] : null
 
   return (
     <div className="zen-card overflow-visible">
@@ -446,11 +485,9 @@ function TipCard({ title, duration, desc, tag, timer }) {
           <p className="text-sm text-deep-green/80 leading-relaxed mb-3">{desc}</p>
           <span className="text-[10px] bg-linen text-stone px-2 py-1 rounded-full">{tag}</span>
 
-          {timer && (
+          {TimerComponent && (
             <div className="mt-4 pt-4 border-t border-beige/50">
-              {timer === 'breathing' && <BreathingTimer />}
-              {timer === 'bodyscan'  && <BodyScanTimer  />}
-              {timer === 'lake'      && <LakeTimer      />}
+              <TimerComponent />
             </div>
           )}
         </div>
@@ -490,7 +527,7 @@ export default function DailyTips() {
       </div>
 
       <div className="flex flex-col gap-3 animate-slide-up">
-        {active?.items.map((item, i) => <TipCard key={i} {...item} />)}
+        {active?.items.map(item => <TipCard key={item.title} {...item} />)}
       </div>
 
       <div className={`mt-6 p-4 rounded-3xl border ${active?.borderColor} ${active?.color}`}>
